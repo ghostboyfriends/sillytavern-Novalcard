@@ -2227,15 +2227,18 @@ $("styleBtn").onclick=async()=>{
 
   try{
     $("styleMsg").innerHTML='<span class="spinner"></span>分析中…';
-    let raw="";
-    if(useStream){
-      try{ raw=await retry(()=>chatStream(messages,{maxTokens:maxT,onDelta:render,signal}),{onWait}); }
-      catch(err){ if(isAbort(err,signal)) throw err; raw=await retry(()=>chat(messages,{maxTokens:maxT,signal}),{onWait}); }
-    }else{
-      raw=await retry(()=>chat(messages,{maxTokens:maxT,signal}),{onWait});
+    const maxCont=$("autoCont").checked?5:0;
+    const raw=await generate(messages,{maxTokens:maxT,useStream,signal,onText:render,onWait,maxCont,logEl:"styleLog",label:"文风"});
+    const finalText=stripFence(stripThink(raw)).trim();
+    if(!finalText){
+      $("styleOut").value="";
+      const snip=String(raw).trim().replace(/\s+/g," ").slice(0,80);
+      logTo("styleLog","没拿到正文。"+(snip?("模型返回：「"+snip+"」"):"（空）"),"e");
+      $("styleMsg").textContent="没输出正文——思考型模型多半是 max_tokens 被思考用光，请调大 max_tokens 或换 flash 模型";
+      return;
     }
-    $("styleOut").value=stripFence(stripThink(raw)).trim();
-    $("styleMsg").textContent="完成";
+    $("styleOut").value=finalText;
+    $("styleMsg").textContent=wasTruncated()?"完成（疑被 max_tokens 截断，可调大后重试）":"完成";
     logTo("styleLog","完成","g");
     saveHistory({ id:Date.now(), type:"style", time:new Date().toLocaleString(), title:"文风蒸馏", model:els.model.value.trim(), text:$("styleOut").value });
   }catch(e){
