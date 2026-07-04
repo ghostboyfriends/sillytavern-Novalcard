@@ -100,7 +100,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.6</span></h1>
+    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.7.1</span></h1>
     <div class="sub">导入小说 · 扫描角色 · 按模板抽取角色卡</div>
     <div class="rule"></div>
   </header>
@@ -328,13 +328,19 @@
         </div>
       </div>
     </details>
+    <div class="field" style="margin-bottom:6px">
+      <label>要生成的内容（勾选后一次生成，不必逐个点）</label>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:4px">
+        <label class="toggle"><input type="checkbox" id="wbTaskExtract" checked> 提取世界书条目</label>
+        <label class="toggle"><input type="checkbox" id="wbTaskBg"> 共享背景大纲（蓝灯）</label>
+        <label class="toggle"><input type="checkbox" id="wbTaskMinor"> 配角群像</label>
+        <label class="toggle"><input type="checkbox" id="wbTaskPlot"> 剧情分段总结（绿灯）</label>
+        <label class="toggle"><input type="checkbox" id="wbTaskCharList"> 人物列表（蓝灯）</label>
+        <label class="toggle"><input type="checkbox" id="wbTaskPlotList"> 剧情大纲（蓝灯）</label>
+      </div>
+    </div>
     <div class="btnrow">
-      <button class="primary" id="wbBtn">提取世界书</button>
-      <button class="ghost" id="wbBgBtn" type="button">＋共享背景大纲</button>
-      <button class="ghost" id="wbMinorBtn" type="button">＋配角群像合集</button>
-      <button class="ghost" id="wbPlotBtn" type="button">＋剧情分段总结</button>
-      <button class="ghost" id="wbCharListBtn" type="button">＋人物列表（蓝灯）</button>
-      <button class="ghost" id="wbPlotListBtn" type="button">＋剧情大纲（蓝灯）</button>
+      <button class="primary" id="wbRunBtn" type="button">生成所选世界书</button>
       <span id="wbMsg" class="faint" style="font-size:12px"></span>
     </div>
     <div class="log" id="wbLog"></div>
@@ -715,7 +721,7 @@ async function fetchWithTimeout(url, opts, ms=180000){
   }finally{ clearTimeout(t); if(outer) outer.removeEventListener("abort",onOuter); }
 }
 // 所有会发请求的按钮：同一时刻只允许一个在跑，其余禁用，避免并发抢占 runController 导致卡死
-const ASYNC_BTNS=["scanBtn","genBtn","contBtn","reviseBtn","wbBtn","wbBgBtn","wbMinorBtn","wbPlotBtn","wbCharListBtn","wbPlotListBtn","wbContBtn","wbReviseBtn","styleBtn","checkRunBtn"];
+const ASYNC_BTNS=["scanBtn","genBtn","contBtn","reviseBtn","wbRunBtn","wbContBtn","wbReviseBtn","styleBtn","checkRunBtn"];
 let runningBtn=null;
 function setRunning(btn,on){
   if(on){
@@ -940,20 +946,47 @@ function renderChars(){
     const on=selectedNames.includes(c.name);
     const d=document.createElement("div");
     d.className="chip"+(on?" sel":"");
+    d.style.position="relative";
     d.innerHTML=`<div class="n"></div><div class="r"></div><div class="c"></div>`;
     d.querySelector(".n").textContent=c.name;
     d.querySelector(".r").textContent=c.role||"";
     const alias=(c.aliases&&c.aliases.length)? " · 别名: "+c.aliases.join("、") : "";
     const src = c.count>0 ? ("出现于 "+c.count+" 段") : "手动添加";
     d.querySelector(".c").textContent=src+alias+(on?" · 已选":"");
+    // 操作按钮：拆分（撤销合并）+ 删除
+    const ops=document.createElement("div");
+    ops.style.cssText="position:absolute;top:6px;right:6px;display:flex;gap:4px";
+    if(c.aliases&&c.aliases.length){
+      const un=document.createElement("button"); un.type="button"; un.textContent="拆分"; un.title="撤销合并，拆回多个角色";
+      un.style.cssText="font-size:11px;padding:1px 6px;border:1px solid var(--gold-dim);background:transparent;color:var(--gold);border-radius:5px;cursor:pointer";
+      un.onclick=ev=>{ ev.stopPropagation(); if(runningBtn){ flash($("scanMsg"),"有任务进行中，请先停止",true); return; } unmergeChar(c.name); };
+      ops.appendChild(un);
+    }
+    const del=document.createElement("button"); del.type="button"; del.textContent="✕"; del.title="删除该角色";
+    del.style.cssText="font-size:11px;padding:1px 6px;border:1px solid var(--danger);background:transparent;color:var(--danger);border-radius:5px;cursor:pointer";
+    del.onclick=ev=>{ ev.stopPropagation(); if(runningBtn){ flash($("scanMsg"),"有任务进行中，请先停止",true); return; }
+      characters=characters.filter(x=>x.name!==c.name); selectedNames=selectedNames.filter(n=>n!==c.name); renderChars(); updateGenBtn(); };
+    ops.appendChild(del);
+    d.appendChild(ops);
     d.onclick=()=>{
-      if(runningBtn) return;   // 运行中不允许改选择，避免和正在跑的循环抢数据
+      if(runningBtn) return;
       const i=selectedNames.indexOf(c.name);
       if(i>=0) selectedNames.splice(i,1); else selectedNames.push(c.name);
       renderChars(); updateGenBtn();
     };
     box.appendChild(d);
   });
+}
+// 撤销合并：把主角色和它的别名拆回各自独立的角色
+function unmergeChar(name){
+  const c=characters.find(x=>x.name===name);
+  if(!c||!c.aliases||!c.aliases.length) return;
+  const names=[c.name, ...c.aliases];
+  characters=characters.filter(x=>x.name!==name);
+  for(const nm of names){
+    if(!characters.some(x=>x.name===nm)) characters.push({name:nm, role:(nm===c.name? c.role:""), count:(nm===c.name?c.count:0), aliases:[]});
+  }
+  renderChars(); updateGenBtn(); flash($("scanMsg"),"已拆分「"+name+"」");
 }
 // 手动添加角色（跳过扫描）
 function addManualNames(){
@@ -1401,15 +1434,8 @@ function downloadBlob(text, filename, mime){
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
-$("wbBtn").onclick=async()=>{
-  const btn=$("wbBtn");
-  if(btn.dataset.running){ stopRun(); return; }
+async function wbExtractCore(signal){
   const text=$("novel").value.trim();
-  if(!text){ flash($("wbMsg"),"请先导入小说",true); return; }
-  if(!els.baseUrl.value.trim()||!els.model.value.trim()){ flash($("wbMsg"),"请先填接口设置",true); return; }
-
-  setRunning(btn,true);
-  const signal=runSignal();
   const size=Math.max(10000,parseInt(els.chunkSize.value)||40000);
   const resuming = wbState && wbState.len===text.length && wbState.next < wbState.cap;
   let chunks, cap, map, startI;
@@ -1417,7 +1443,6 @@ $("wbBtn").onclick=async()=>{
     chunks=wbState.chunks; cap=wbState.cap; map=wbState.map; startI=wbState.next;
     logTo("wbLog","从第 "+(startI+1)+"/"+cap+" 段继续提取…");
   }else{
-    clearLog("wbLog"); wbEntries=[]; $("wbOut").value="";
     chunks=[]; for(let i=0;i<text.length;i+=size) chunks.push(text.slice(i,i+size));
     cap=Math.min(chunks.length, Math.max(1, parseInt(els.scanCap.value)||40));
     map=new Map(); startI=0;
@@ -1479,14 +1504,14 @@ $("wbBtn").onclick=async()=>{
     const doneAll = wbState.next>=cap;
     if(!wbEntries.length){ $("wbMsg").textContent=doneAll?"没提取到条目":"已停止"; logTo("wbLog","无结果","e"); if(doneAll) wbState=null; return; }
     $("wbOut").value=buildWbPreview(wbEntries);
-    if(doneAll){ wbState=null; $("wbMsg").textContent="完成，共 "+wbEntries.length+" 条"; }
-    else { $("wbMsg").textContent="已停止，共 "+wbEntries.length+" 条 · 再点「提取世界书」从第 "+(wbState.next+1)+" 段继续"; }
+    if(doneAll){ wbState=null; logTo("wbLog","提取完成，共 "+wbEntries.length+" 条","g"); }
+    else { $("wbMsg").textContent="已停止，共 "+wbEntries.length+" 条 · 再点「生成所选世界书」从第 "+(wbState.next+1)+" 段继续"; }
     saveHistory({ id:Date.now(), type:"worldbook", time:new Date().toLocaleString(), title:"世界书 · "+wbEntries.length+" 条", model:els.model.value.trim(), text:$("wbOut").value });
   }catch(e){
-    if(isAbort(e,signal)){ logTo("wbLog","已停止","e"); $("wbMsg").textContent="已停止（可再点「提取世界书」继续）"; }
-    else { logTo("wbLog","错误："+e.message,"e"); $("wbMsg").textContent=""; }
-  }finally{ setRunning(btn,false); }
-};
+    if(isAbort(e,signal)){ logTo("wbLog","已停止","e"); throw e; }
+    else { logTo("wbLog","错误："+e.message,"e"); throw e; }
+  }
+}
 
 // 可读预览（带推荐设置）
 // user 替换：把配置的角色名换成 {{user}}，并把该名从关键词里剔除
@@ -1652,15 +1677,9 @@ $("wbContBtn").onclick=async()=>{
 };
 
 // 剧情分段总结：按顺序分段，每个阶段/副本一条绿灯世界书条目（≥300字）
-$("wbPlotBtn").onclick=async()=>{
-  const btn=$("wbPlotBtn");
-  if(btn.dataset.running){ stopRun(); return; }
+async function wbPlotCore(signal){
   const text=$("novel").value.trim();
-  if(!text){ flash($("wbMsg"),"请先导入小说",true); return; }
-  if(!els.baseUrl.value.trim()||!els.model.value.trim()){ flash($("wbMsg"),"请先填接口设置",true); return; }
-
-  setRunning(btn,true); $("wbMsg").innerHTML='<span class="spinner"></span>剧情分段…';
-  const signal=runSignal();
+  $("wbMsg").innerHTML='<span class="spinner"></span>剧情分段…';
   const size=Math.max(50000, parseInt(els.chunkSize.value)||40000);
   const chunks=[]; for(let i=0;i<text.length;i+=size) chunks.push(text.slice(i,i+size));
   const cap=Math.min(chunks.length, Math.max(1, parseInt(els.scanCap.value)||40));
@@ -1700,30 +1719,20 @@ $("wbPlotBtn").onclick=async()=>{
       }
       logTo("wbLog","第"+(i+1)+"段 → 累计剧情条目 "+added.length,"g");
     }
-    if(!added.length){ flash($("wbMsg"),signal.aborted?"已停止":"没提取到剧情",true); return; }
+    if(!added.length){ if(signal.aborted) return; logTo("wbLog","没提取到剧情","e"); return; }
     for(const e of added){ const idx=wbEntries.findIndex(x=>x.title===e.title); if(idx>=0) wbEntries[idx]=e; else wbEntries.push(e); }
     $("wbOut").value=buildWbPreview(wbEntries);
-    $("wbMsg").textContent=(signal.aborted?"已停止，":"完成，")+"新增剧情 "+added.length+" 条（共 "+wbEntries.length+" 条）";
+    logTo("wbLog","剧情分段：新增 "+added.length+" 条（共 "+wbEntries.length+" 条）","g");
     saveHistory({ id:Date.now(), type:"worldbook", time:new Date().toLocaleString(), title:"世界书 · "+wbEntries.length+" 条（含剧情分段）", model:els.model.value.trim(), text:$("wbOut").value });
-  }catch(e){
-    if(isAbort(e,signal)) $("wbMsg").textContent="已停止";
-    else flash($("wbMsg"),"失败："+e.message,true);
-  }finally{ setRunning(btn,false); }
-};
+  }catch(e){ throw e; }
+}
 
 // 配角群像合集：把次要角色归纳成一条世界书条目，每人一两句
-$("wbMinorBtn").onclick=async()=>{
-  const btn=$("wbMinorBtn");
-  if(btn.dataset.running){ stopRun(); return; }
+async function wbMinorCore(signal){
   const text=$("novel").value.trim();
-  if(!text){ flash($("wbMsg"),"请先导入小说",true); return; }
-  if(!characters.length){ flash($("wbMsg"),"请先在上方扫描角色",true); return; }
-  if(!els.baseUrl.value.trim()||!els.model.value.trim()){ flash($("wbMsg"),"请先填接口设置",true); return; }
-
-  setRunning(btn,true);
+  if(!characters.length){ logTo("wbLog","配角：请先扫描/添加角色，跳过","e"); return; }
   const mode=$("minorMode").value;
   $("wbMsg").innerHTML='<span class="spinner"></span>'+(mode==="each"?"逐个配角…":"归纳配角…");
-  const signal=runSignal();
   const maxT=Math.max(4000,parseInt(els.maxTok.value)||4000);
   const sample=sampleForStyle(text);
   const cap=Math.max(1, parseInt($("minorCap").value)||20);
@@ -1773,20 +1782,13 @@ $("wbMinorBtn").onclick=async()=>{
       $("wbMsg").textContent="已加入配角群像（共 "+wbEntries.length+" 条）";
     }
     saveHistory({ id:Date.now(), type:"worldbook", time:new Date().toLocaleString(), title:"世界书 · "+wbEntries.length+" 条", model:els.model.value.trim(), text:$("wbOut").value });
-  }catch(e){
-    if(isAbort(e,signal)) $("wbMsg").textContent="已停止";
-    else flash($("wbMsg"),"失败："+e.message,true);
-  }finally{ setRunning(btn,false); }
-};
+  }catch(e){ throw e; }
+}
 
 // 蓝灯列表：一条常驻条目（人物列表 / 剧情大纲）
-async function wbConstantEntry(btn, kind){
-  if(btn.dataset.running){ stopRun(); return; }
+async function wbConstantEntry(signal, kind){
   const text=$("novel").value.trim();
-  if(!text){ flash($("wbMsg"),"请先导入小说",true); return; }
-  if(!els.baseUrl.value.trim()||!els.model.value.trim()){ flash($("wbMsg"),"请先填接口设置",true); return; }
-  setRunning(btn,true); $("wbMsg").innerHTML='<span class="spinner"></span>'+(kind==="chars"?"生成人物列表…":"生成剧情大纲…");
-  const signal=runSignal();
+  $("wbMsg").innerHTML='<span class="spinner"></span>'+(kind==="chars"?"生成人物列表…":"生成剧情大纲…");
   const maxT=Math.max(6000,parseInt(els.maxTok.value)||4000);
   const sample=sampleForStyle(text);
   const onWait=(n,code,w)=>flash($("wbMsg"),"HTTP "+code+"，重试("+n+")",true);
@@ -1802,20 +1804,15 @@ async function wbConstantEntry(btn, kind){
   try{
     const raw=await generate(userMsgs(prompt),{maxTokens:maxT,useStream:$("stream").checked,signal,onText:f=>{$("wbOut").value=stripThink(f);},onWait,maxCont:$("autoCont").checked?5:0,logEl:"wbLog",label:title});
     const content=stripFence(stripThink(raw)).trim();
-    if(!content){ flash($("wbMsg"),"没生成内容",true); return; }
+    if(!content){ logTo("wbLog",title+"：没生成内容","e"); return; }
     const entry={ category:"总纲", title, keys:[], content, constant:true };  // 蓝灯常驻
     const idx=wbEntries.findIndex(x=>x.title===title);
     if(idx>=0) wbEntries[idx]=entry; else wbEntries.unshift(entry);
     $("wbOut").value=buildWbPreview(wbEntries);
-    $("wbMsg").textContent="已加入「"+title+"」（蓝灯，共 "+wbEntries.length+" 条）";
+    logTo("wbLog",title+"：已加入（蓝灯，共 "+wbEntries.length+" 条）","g");
     saveHistory({ id:Date.now(), type:"worldbook", time:new Date().toLocaleString(), title:"世界书 · "+wbEntries.length+" 条（含"+title+"）", model:els.model.value.trim(), text:$("wbOut").value });
-  }catch(e){
-    if(isAbort(e,signal)) $("wbMsg").textContent="已停止";
-    else flash($("wbMsg"),"失败："+e.message,true);
-  }finally{ setRunning(btn,false); }
+  }catch(e){ throw e; }
 }
-$("wbCharListBtn").onclick=()=>wbConstantEntry($("wbCharListBtn"),"chars");
-$("wbPlotListBtn").onclick=()=>wbConstantEntry($("wbPlotListBtn"),"plot");
 
 $("wbDl").onclick=()=>{
   if(!wbEntries.length){ flash($("wbMsg"),"还没有条目",true); return; }
@@ -1873,15 +1870,9 @@ $("fullCardBtn").onclick=()=>{
 };
 
 // 共享背景 / 世界大纲：把多角色共同的时代背景、共同经历抽成一条常驻条目
-$("wbBgBtn").onclick=async()=>{
-  const btn=$("wbBgBtn");
-  if(btn.dataset.running){ stopRun(); return; }
+async function wbBgCore(signal){
   const text=$("novel").value.trim();
-  if(!text){ flash($("wbMsg"),"请先导入小说",true); return; }
-  if(!els.baseUrl.value.trim()||!els.model.value.trim()){ flash($("wbMsg"),"请先填接口设置",true); return; }
-
-  setRunning(btn,true); $("wbMsg").innerHTML='<span class="spinner"></span>提取共享背景…';
-  const signal=runSignal();
+  $("wbMsg").innerHTML='<span class="spinner"></span>提取共享背景…';
   const maxT=Math.max(4000,parseInt(els.maxTok.value)||4000);
   const sample=sampleForStyle(text);
   const prompt=
@@ -1889,18 +1880,47 @@ $("wbBgBtn").onclick=async()=>{
     "浓缩成一段适合做「常驻世界书条目」的背景大纲，让 AI 始终了解故事发生的大框架，从而角色卡里不必重复这些共同信息。\n"+
     "只依据原文，简洁准确，不编造。直接输出这段背景大纲正文，不要标题、不要解释、不要代码块。\n\n=== 小说节选 ===\n"+sample;
   const onWait=(n,code,w)=>flash($("wbMsg"),"HTTP "+code+"，重试("+n+")",true);
+  const raw=await generate(userMsgs(prompt),{maxTokens:maxT,useStream:$("stream").checked,signal,onText:f=>{$("wbOut").value=stripThink(f);},onWait,maxCont:$("autoCont").checked?5:0,logEl:"wbLog",label:"共享背景"});
+  const content=stripFence(stripThink(raw)).trim();
+  if(!content){ logTo("wbLog","共享背景：没提取到内容","e"); return; }
+  const entry={ category:"共享背景", title:"共享背景 / 世界大纲", keys:[], content, constant:true };
+  const i=wbEntries.findIndex(e=>e.title===entry.title);
+  if(i>=0) wbEntries[i]=entry; else wbEntries.unshift(entry);
+  $("wbOut").value=buildWbPreview(wbEntries);
+  logTo("wbLog","共享背景：已加入（共 "+wbEntries.length+" 条）","g");
+  saveHistory({ id:Date.now(), type:"worldbook", time:new Date().toLocaleString(), title:"世界书 · "+wbEntries.length+" 条（含共享背景）", model:els.model.value.trim(), text:$("wbOut").value });
+}
+
+// ========== 统一运行器：按勾选依次生成 ==========
+$("wbRunBtn").onclick=async()=>{
+  const btn=$("wbRunBtn");
+  if(btn.dataset.running){ stopRun(); return; }
+  const text=$("novel").value.trim();
+  if(!text){ flash($("wbMsg"),"请先导入小说",true); return; }
+  if(!els.baseUrl.value.trim()||!els.model.value.trim()){ flash($("wbMsg"),"请先填接口设置",true); return; }
+  const tasks=[];
+  if($("wbTaskExtract").checked) tasks.push(["提取世界书", wbExtractCore]);
+  if($("wbTaskBg").checked) tasks.push(["共享背景", wbBgCore]);
+  if($("wbTaskMinor").checked) tasks.push(["配角群像", wbMinorCore]);
+  if($("wbTaskPlot").checked) tasks.push(["剧情分段", wbPlotCore]);
+  if($("wbTaskCharList").checked) tasks.push(["人物列表", s=>wbConstantEntry(s,"chars")]);
+  if($("wbTaskPlotList").checked) tasks.push(["剧情大纲", s=>wbConstantEntry(s,"plot")]);
+  if(!tasks.length){ flash($("wbMsg"),"请先勾选要生成的内容",true); return; }
+
+  setRunning(btn,true);
+  // 若勾了「提取世界书条目」且不是断点续跑，清空重来
+  if($("wbTaskExtract").checked && !(wbState && wbState.len===text.length && wbState.next<wbState.cap)){ clearLog("wbLog"); wbEntries=[]; $("wbOut").value=""; }
+  else clearLog("wbLog");
+  const signal=runSignal();
   try{
-    const raw=await retry(()=>chat(userMsgs(prompt),{maxTokens:maxT,signal}),{onWait});
-    const content=stripFence(stripThink(raw)).trim();
-    if(!content){ flash($("wbMsg"),"没提取到内容",true); return; }
-    const entry={ category:"共享背景", title:"共享背景 / 世界大纲", keys:[], content, constant:true };
-    const i=wbEntries.findIndex(e=>e.title===entry.title);
-    if(i>=0) wbEntries[i]=entry; else wbEntries.unshift(entry);
-    $("wbOut").value=buildWbPreview(wbEntries);
-    $("wbMsg").textContent="已加入共享背景（共 "+wbEntries.length+" 条）";
-    saveHistory({ id:Date.now(), type:"worldbook", time:new Date().toLocaleString(), title:"世界书 · "+wbEntries.length+" 条（含共享背景）", model:els.model.value.trim(), text:$("wbOut").value });
+    for(let k=0;k<tasks.length;k++){
+      if(signal.aborted) break;
+      logTo("wbLog","▶ "+tasks[k][0]);
+      await tasks[k][1](signal);
+    }
+    $("wbMsg").textContent = signal.aborted ? "已停止" : ("完成，共 "+wbEntries.length+" 条");
   }catch(e){
-    if(isAbort(e,signal)) $("wbMsg").textContent="已停止";
+    if(isAbort(e,signal)) $("wbMsg").textContent="已停止（可再点「生成所选世界书」继续）";
     else flash($("wbMsg"),"失败："+e.message,true);
   }finally{ setRunning(btn,false); }
 };
