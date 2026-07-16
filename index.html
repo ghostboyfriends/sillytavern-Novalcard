@@ -100,7 +100,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.7.3</span></h1>
+    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.7.4</span></h1>
     <div class="sub">导入小说 · 扫描角色 · 按模板抽取角色卡</div>
     <div class="rule"></div>
   </header>
@@ -1824,7 +1824,18 @@ async function wbConstantEntry(signal, kind){
   }catch(e){ throw e; }
 }
 
+// 把预览框里手动编辑/新增的内容同步回条目，保证下载和打包用的是你看到的版本
+function syncWbFromPreview(){
+  const txt=$("wbOut").value;
+  if(!txt.trim()) return;
+  if(txt.trim()===buildWbPreview(wbEntries).trim()) return;   // 没动过
+  const parsed=parseWbPreview(txt);
+  if(parsed.length){ wbEntries=parsed; }
+  else logTo("wbLog","预览框内容无法解析成条目（格式需保持「===== 序号. 标题 =====」那套），导出将沿用上次的结果","e");
+}
+
 $("wbDl").onclick=()=>{
+  syncWbFromPreview();
   if(!wbEntries.length){ flash($("wbMsg"),"还没有条目",true); return; }
   downloadBlob(buildWbJson(wbEntries), (($("wbName").value.trim()||"世界书").replace(/[\\/:*?"<>|]/g,"_"))+".json", "application/json");
 };
@@ -1852,6 +1863,7 @@ function bookEntries(entries){
   }));
 }
 function buildFullCard(){
+  syncWbFromPreview();
   const cardText=$("output").value.trim();
   if(!cardText) return null;
   const name = (selectedNames[0]) || parseCardName(cardText) || "角色";
@@ -2186,7 +2198,18 @@ $("checkRunBtn").onclick=async()=>{
       // 取参考原文
       let ref="";
       if(it.type==="card"){ const b=(it.name||"").replace(/[（(].+?[)）]\s*$/,"").trim(); ref=collectContext(b||it.name); }
-      else { const names=(it.keys&&it.keys.length)?it.keys:[it.name]; const paras=$("novel").value.split(/\n\s*\n|\n/).filter(p=>p.trim()); ref=paras.filter(p=>names.some(n=>n&&p.includes(n))).join("\n\n").slice(0,80000); }
+      else {
+        const names=(it.keys&&it.keys.length)?it.keys:[it.name];
+        const paras=$("novel").value.split(/\n\s*\n|\n/).filter(p=>p.trim());
+        ref=paras.filter(p=>names.some(n=>n&&p.includes(n))).join("\n\n").slice(0,80000);
+        // 蓝灯/总纲类条目（人物列表、剧情大纲、共享背景）没有关键词，标题也不会出现在原文里，
+        // 关键词搜不到时兜底用全书抽样，否则模型会回「未提供原文无法对照」
+        if(ref.replace(/\s/g,"").length<200){
+          const t=$("novel").value.trim();
+          if(t){ ref=sampleForStyle(t); logTo("checkLog",it.label+"：关键词未命中原文，改用全书抽样对照"); }
+        }
+      }
+      if(!ref.trim()) logTo("checkLog",it.label+"：没有可对照的原文（请确认已导入小说）","e");
       const sys="你是严谨的校对员，对照原文检查角色卡/世界书条目的准确性，只依据原文判断。";
       const user=
         "请对照原文，检查下面这份"+(it.type==="card"?"角色卡":"世界书条目")+"是否存在问题：\n"+
