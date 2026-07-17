@@ -100,7 +100,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.7.4</span></h1>
+    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.8.0</span></h1>
     <div class="sub">导入小说 · 扫描角色 · 按模板抽取角色卡</div>
     <div class="rule"></div>
   </header>
@@ -297,9 +297,56 @@
     </div>
   </div>
 
-  <!-- 5. 生成世界书 -->
+  <!-- 5. 生成 user 人设 -->
   <div class="card">
-    <h2><span class="idx">05</span> 生成世界书</h2>
+    <h2><span class="idx">05</span> 生成 user 人设</h2>
+    <p class="hint">生成一份「你」在这本小说里的人设（酒馆的<b>用户角色 / persona</b>）。填下面的设定，AI 会把你自然地写进这个世界，并交代好你和角色的关系。</p>
+    <div class="field">
+      <label>你希望的设定（名字、性别、年龄、性格、MBTI、外貌、身份、喜好……想到什么写什么，写得越细越贴）</label>
+      <textarea id="pnDesc" rows="4" placeholder="例：名字叫江离，女，24 岁，INFP，表面温和实则倔强，在城南开一家花店，怕黑，习惯把心事写进日记里。"></textarea>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>与哪个角色产生关系（可留空；填原文里的角色名）</label>
+        <input type="text" id="pnChar" class="mono" placeholder="如：沈砚" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>人设详细程度</label>
+        <select id="pnDetail" class="mono">
+          <option value="concise">精简（几句话）</option>
+          <option value="medium" selected>适中</option>
+          <option value="rich">详尽</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>你和 TA 的关系、TA 对你的态度、你们之间发生过什么（可留空）</label>
+      <textarea id="pnRel" rows="3" placeholder="例：我是他的旧邻居，七年前那场雪他替我挡过一刀。他嘴上嫌我烦，其实每天都会绕路经过我的店。"></textarea>
+    </div>
+    <div class="btnrow" style="margin-top:0;margin-bottom:6px">
+      <label class="toggle"><input type="checkbox" id="pnUseNovel" checked> 结合小说世界观（让人设贴合原著设定）</label>
+      <label class="toggle"><input type="checkbox" id="pnNsfw"> 包含 NSFW 设定</label>
+    </div>
+    <div class="btnrow">
+      <button class="primary" id="pnBtn" type="button">生成 user 人设</button>
+      <span id="pnMsg" class="faint" style="font-size:12px"></span>
+    </div>
+    <div class="log" id="pnLog"></div>
+    <div class="field" style="margin-top:16px">
+      <textarea id="pnOut" class="out" spellcheck="false" placeholder="生成的 user 人设会显示在这里，可直接编辑…"></textarea>
+    </div>
+    <div class="btnrow">
+      <button class="ghost" id="pnCopy">复制</button>
+      <button class="ghost" id="pnDl">下载 .txt</button>
+    </div>
+    <div class="warnbox">
+      用法：复制后粘贴到酒馆的<b>「用户角色（Persona）」</b>里即可。填的设定是你的，AI 只负责把它写得贴合这个世界——不会瞎改你定的名字、性别这些硬设定。
+    </div>
+  </div>
+
+  <!-- 6. 生成世界书 -->
+  <div class="card">
+    <h2><span class="idx">06</span> 生成世界书</h2>
     <p class="hint">从全书提取世界观 / 势力 / 地点 / 设定 / 历史等条目，附推荐的酒馆条目设置。可下载成能直接导入酒馆的世界书 JSON，或照预览手动建条目。</p>
     <div class="btnrow" style="margin-top:0;margin-bottom:6px">
       <label class="toggle"><input type="checkbox" id="wbNsfw"> 包含成人设定</label>
@@ -366,9 +413,9 @@
     </div>
   </div>
 
-  <!-- 6. 文风蒸馏 -->
+  <!-- 7. 文风蒸馏 -->
   <div class="card">
-    <h2><span class="idx">06</span> 文风蒸馏</h2>
+    <h2><span class="idx">07</span> 文风蒸馏</h2>
     <p class="hint">抽样分析全书写作风格（视角 / 句式 / 用词 / 节奏 / 情感表达等），产出一份可直接粘贴给 AI 的「文风提示词」，让它照着写出原作风味。只做风格抽象，不摘抄原文。</p>
     <div class="btnrow" style="margin-top:0;margin-bottom:6px">
       <label class="toggle"><input type="checkbox" id="styleNsfw"> 包含情欲描写文风</label>
@@ -394,9 +441,9 @@
     </div>
   </div>
 
-  <!-- 7. 打包导出 -->
+  <!-- 8. 打包导出 -->
   <div class="card">
-    <h2><span class="idx">07</span> 打包导出</h2>
+    <h2><span class="idx">08</span> 打包导出</h2>
     <p class="hint">流程最后一步：把上面生成好的角色卡、世界书、文风打包成一张<b>酒馆可直接导入的完整角色卡</b>（世界书内嵌绑定，文风自动写入条目）。缺哪部分就只打包已有的。</p>
     <div class="btnrow">
       <button class="primary" id="fullCardBtn" type="button">导出完整角色卡 .json</button>
@@ -407,9 +454,9 @@
     </div>
   </div>
 
-  <!-- 8. 自检 -->
+  <!-- 9. 自检 -->
   <div class="card">
-    <h2><span class="idx">08</span> 自检</h2>
+    <h2><span class="idx">09</span> 自检</h2>
     <p class="hint">对照原文检查已生成的角色卡 / 世界书条目有没有 OOC、经历互串、与原文冲突的错误，给出问题日志和修正后的成品。先「扫描当前内容」，勾选要查的项，再「开始自检」（只查勾选的，省 token）。不含历史记录。</p>
     <div class="btnrow" style="margin-top:0">
       <button class="ghost" id="checkScanBtn" type="button">扫描当前内容</button>
@@ -427,9 +474,9 @@
     </div>
   </div>
 
-  <!-- 9. 历史记录 -->
+  <!-- 10. 历史记录 -->
   <div class="card">
-    <h2><span class="idx">09</span> 历史记录</h2>
+    <h2><span class="idx">10</span> 历史记录</h2>
     <p class="hint">每次生成的角色卡会自动存到这里（本机浏览器，最多 30 条）。点「查看」读回上方输出框。</p>
     <div class="btnrow" style="margin-top:0">
       <button class="ghost" id="histClear" type="button">清空全部</button>
@@ -438,9 +485,9 @@
     <div id="histList" style="margin-top:14px"></div>
   </div>
 
-  <!-- 10. 报错自查 -->
+  <!-- 11. 报错自查 -->
   <div class="card">
-    <h2><span class="idx">10</span> 报错自查</h2>
+    <h2><span class="idx">11</span> 报错自查</h2>
     <p class="hint">遇到报错先对照下面几条，多数能自己解决。</p>
     <details class="adv"><summary>Load failed / 网络错误 / 请求发不出去</summary>
       <div class="warnbox" style="margin-top:8px">请求没到服务器，通常是浏览器拦截：① 若用的是 http 接口，别在 https 页面里调（混合内容会被拦）；② 接口需支持跨域（CORS），不支持的换一个；③ 本地接口请确认它确实在运行。与模型、参数无关，别在那上面找原因。</div>
@@ -729,7 +776,7 @@ async function fetchWithTimeout(url, opts, ms=180000){
   }finally{ clearTimeout(t); if(outer) outer.removeEventListener("abort",onOuter); }
 }
 // 所有会发请求的按钮：同一时刻只允许一个在跑，其余禁用，避免并发抢占 runController 导致卡死
-const ASYNC_BTNS=["scanBtn","genBtn","contBtn","reviseBtn","wbRunBtn","wbContBtn","wbReviseBtn","styleBtn","checkRunBtn"];
+const ASYNC_BTNS=["scanBtn","genBtn","contBtn","reviseBtn","pnBtn","wbRunBtn","wbContBtn","wbReviseBtn","styleBtn","checkRunBtn"];
 let runningBtn=null;
 function setRunning(btn,on){
   if(on){
@@ -1432,6 +1479,83 @@ $("reviseBtn").onclick=async()=>{
 
 updateStat();
 
+// ==================== 生成 user 人设（persona） ====================
+$("pnBtn").onclick=async()=>{
+  const btn=$("pnBtn");
+  if(btn.dataset.running){ stopRun(); return; }
+  const desc=$("pnDesc").value.trim();
+  if(!desc){ flash($("pnMsg"),"请先填你希望的设定",true); return; }
+  if(!els.baseUrl.value.trim()||!els.model.value.trim()){ flash($("pnMsg"),"请先填接口设置",true); return; }
+
+  setRunning(btn,true); clearLog("pnLog"); $("pnOut").value="";
+  $("pnMsg").innerHTML='<span class="spinner"></span>生成中…';
+  const signal=runSignal();
+  const useStream=$("stream").checked;
+  const maxT=Math.max(4000,parseInt(els.maxTok.value)||4000);
+  const maxCont=$("autoCont").checked?5:0;
+
+  const charName=$("pnChar").value.trim();
+  const rel=$("pnRel").value.trim();
+  const useNovel=$("pnUseNovel").checked && $("novel").value.trim();
+  const detail=$("pnDetail").value;
+  const detailRule = detail==="concise" ? "· 篇幅精简，几句话到一小段即可。"
+    : detail==="rich" ? "· 尽量写得丰富具体，有细节和层次。" : "";
+
+  // 参考原文：优先取指定角色的相关段落，否则用全书抽样
+  let ref="";
+  if(useNovel){
+    ref = charName ? collectContext(charName) : sampleForStyle($("novel").value.trim());
+    logTo("pnLog","参考原文约 "+ref.length.toLocaleString()+" 字"+(charName?("（"+charName+" 相关段落）"):"（全书抽样）"));
+  }
+
+  const sys="你是角色卡撰写者，为用户本人撰写一份「用户角色（persona）」。用户给的设定是硬设定，必须完整保留、不得篡改；你的工作是把它写得自然、有血肉，并让它贴合故事世界。";
+  const user=
+    "请为「{{user}}」（也就是用户本人）写一份人设。\n\n"+
+    "【用户给定的设定 —— 必须严格保留，不得擅自更改或删减】\n"+desc+"\n\n"+
+    (rel? ("【与角色的关系 / 对方的态度 —— 必须体现】\n"+(charName?("对象角色："+charName+"\n"):"")+rel+"\n\n") : (charName? ("【关系】请合理写出 {{user}} 与「"+charName+"」的关系。\n\n") : ""))+
+    (useNovel? ("【故事原文（节选，供你贴合世界观）】\n"+ref+"\n\n") : "")+
+    "要求：\n"+
+    "· 以 {{user}} 指代用户本人，不要另起别的代称。\n"+
+    "· 用户给的名字、性别、年龄、性格、MBTI 等硬设定原样保留，只做润色和扩写，绝不改动。\n"+
+    (useNovel? "· 结合原文的时代背景、社会环境与设定，让 {{user}} 像是本来就活在这个世界里的人；可合理演绎，但不得与原文设定冲突，也不要编造原文没有的重大事件。\n" : "")+
+    (charName? ("· 写清 {{user}} 与「"+charName+"」的关系、相处方式，以及「"+charName+"」对 {{user}} 的态度，要与原文中该角色的性格一致，严禁 OOC。\n") : "")+
+    ($("pnNsfw").checked ? "· 可包含成人向设定（性向、癖好、边界等），依据用户给的设定来写，不编造用户没提的取向。\n" : "· 不要写任何性相关内容。\n")+
+    (detailRule? detailRule+"\n" : "")+
+    "· 输出结构化人设，包含：基本信息（名字/性别/年龄/身份等）、外貌、性格、与主要角色的关系、日常与习惯等；用户没提且原文也无依据的，不要硬编。\n"+
+    "· 直接输出人设正文，不要额外解释，不要用代码块包裹。";
+  const messages=[{role:"system",content:withSys(sys)},{role:"user",content:user}];
+  const onWait=(n,code,w)=>logTo("pnLog","HTTP "+code+"，"+(w/1000)+"s 后重试("+n+")","e");
+  const render=f=>{ $("pnOut").value=dispThink(f); $("pnOut").scrollTop=$("pnOut").scrollHeight; };
+
+  try{
+    const raw=await generate(messages,{maxTokens:maxT,useStream,signal,onText:render,onWait,maxCont,logEl:"pnLog",label:"user 人设"});
+    const finalText=stripFence(stripThink(raw)).trim();
+    if(!finalText){
+      const snip=String(raw).trim().replace(/\s+/g," ").slice(0,90);
+      $("pnOut").value="";
+      logTo("pnLog","没拿到正文。模型返回："+(snip?("「"+snip+"」"):"（空，多半被安全过滤挡了，或 max_tokens 被思考用光）"),"e");
+      $("pnMsg").textContent="没输出正文——可调大 max_tokens 或换模型";
+      return;
+    }
+    $("pnOut").value=finalText;
+    $("pnMsg").textContent="完成";
+    logTo("pnLog","完成","g");
+    saveHistory({ id:Date.now(), type:"style", time:new Date().toLocaleString(), title:"user 人设", model:els.model.value.trim(), text:finalText });
+  }catch(e){
+    if(isAbort(e,signal)) $("pnMsg").textContent="已停止";
+    else { logTo("pnLog","失败："+e.message,"e"); $("pnMsg").textContent="失败"; }
+  }finally{ setRunning(btn,false); }
+};
+$("pnCopy").onclick=async()=>{
+  const t=$("pnOut").value; if(!t) return;
+  try{ await navigator.clipboard.writeText(t); flash($("pnMsg"),"已复制"); }
+  catch(e){ $("pnOut").select(); document.execCommand("copy"); flash($("pnMsg"),"已复制"); }
+};
+$("pnDl").onclick=()=>{
+  const t=$("pnOut").value; if(!t){ flash($("pnMsg"),"没有内容",true); return; }
+  downloadBlob(t, "user人设.txt", "text/plain");
+};
+
 // ==================== 世界书提取 ====================
 let wbEntries=[];
 let wbState=null;   // 断点续提：{len, chunks, cap, next, map}
@@ -1718,7 +1842,11 @@ async function wbPlotCore(signal){
         logTo("wbLog","第"+(i+1)+"段请求失败："+err.message,"e"); continue;
       }
       const arr=extractJsonArray(raw);
-      if(!Array.isArray(arr)){ logTo("wbLog","第"+(i+1)+"段解析失败，跳过","e"); continue; }
+      if(!Array.isArray(arr)){
+        const snip=String(raw).trim().replace(/\s+/g," ").slice(0,90);
+        logTo("wbLog","第"+(i+1)+"段解析失败，模型返回："+(snip?"「"+snip+"」":"（空，多半被安全过滤挡了，或 max_tokens 被思考用光）"),"e");
+        continue;
+      }
       for(const e of arr){
         if(!e||!e.title||!e.content) continue;
         const rawTitle=String(e.title).trim();
@@ -1814,7 +1942,11 @@ async function wbConstantEntry(signal, kind){
   try{
     const raw=await generate(userMsgs(prompt),{maxTokens:maxT,useStream:$("stream").checked,signal,onText:f=>{$("wbOut").value=dispThink(f);},onWait,maxCont:$("autoCont").checked?5:0,logEl:"wbLog",label:title});
     const content=stripFence(stripThink(raw)).trim();
-    if(!content){ logTo("wbLog",title+"：没生成内容","e"); return; }
+    if(!content){
+      const snip=String(raw).trim().replace(/\s+/g," ").slice(0,90);
+      logTo("wbLog",title+"：没生成内容。模型返回："+(snip?"「"+snip+"」":"（空，多半被安全过滤挡了，或 max_tokens 被思考用光）"),"e");
+      return;
+    }
     const entry={ category:"总纲", title, keys:[], content, constant:true };  // 蓝灯常驻
     const idx=wbEntries.findIndex(x=>x.title===title);
     if(idx>=0) wbEntries[idx]=entry; else wbEntries.unshift(entry);
