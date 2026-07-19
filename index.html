@@ -100,7 +100,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.8.0</span></h1>
+    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.8.1</span></h1>
     <div class="sub">导入小说 · 扫描角色 · 按模板抽取角色卡</div>
     <div class="rule"></div>
   </header>
@@ -209,7 +209,10 @@
       <span id="scanMsg" class="faint" style="font-size:12px"></span>
     </div>
     <div class="log" id="scanLog"></div>
-    <div class="charlist" id="charList" style="margin-top:16px"></div>
+    <div id="charSearchWrap" style="margin-top:14px;display:none">
+      <input type="text" id="charSearch" placeholder="搜索角色名（角色多的时候用它快速找）…" autocomplete="off" style="width:100%">
+    </div>
+    <div class="charlist" id="charList" style="margin-top:12px"></div>
   </div>
 
   <!-- 4. 生成角色卡 -->
@@ -999,7 +1002,13 @@ $("scanBtn").onclick=async()=>{
 
 function renderChars(){
   const box=$("charList"); box.innerHTML="";
-  characters.forEach(c=>{
+  // 角色较多时才显示搜索框
+  const wrap=$("charSearchWrap");
+  if(wrap) wrap.style.display = characters.length>12 ? "block" : "none";
+  const kw=($("charSearch")&&$("charSearch").value.trim().toLowerCase())||"";
+  const list = kw ? characters.filter(c=> c.name.toLowerCase().includes(kw) || (c.aliases||[]).some(a=>a.toLowerCase().includes(kw)) || (c.role||"").toLowerCase().includes(kw)) : characters;
+  if(kw && !list.length){ box.innerHTML='<div class="faint" style="font-size:12.5px">没有匹配「'+kw+'」的角色</div>'; return; }
+  list.forEach(c=>{
     const on=selectedNames.includes(c.name);
     const d=document.createElement("div");
     d.className="chip"+(on?" sel":"");
@@ -1064,7 +1073,8 @@ function addManualNames(){
 }
 $("addNamesBtn").onclick=addManualNames;
 $("manualNames").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addManualNames(); } });
-$("clearCharsBtn").onclick=()=>{ if(runningBtn){ flash($("scanMsg"),"有任务进行中，请先停止",true); return; } characters=[]; selectedNames=[]; scanState=null; renderChars(); updateGenBtn(); flash($("scanMsg"),"已清空"); };
+$("clearCharsBtn").onclick=()=>{ if(runningBtn){ flash($("scanMsg"),"有任务进行中，请先停止",true); return; } characters=[]; selectedNames=[]; scanState=null; if($("charSearch")) $("charSearch").value=""; renderChars(); updateGenBtn(); flash($("scanMsg"),"已清空"); };
+if($("charSearch")) $("charSearch").addEventListener("input", ()=>renderChars());
 
 // 手动合并：把选中的多个角色并成一个（第一个为主名，其余记为别名）
 $("mergeBtn").onclick=()=>{
@@ -1083,7 +1093,7 @@ $("mergeBtn").onclick=()=>{
   }
   selectedNames=[primaryName];
   renderChars(); updateGenBtn();
-  flash($("scanMsg"),"已合并为「"+primaryName+"」");
+  flash($("scanMsg"),"已合并为「"+primaryName+"」（合错了点该角色上的「拆分」可撤销）");
 };
 function updateGenBtn(){
   const n=selectedNames.length;
