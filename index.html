@@ -100,7 +100,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.8.1</span></h1>
+    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.8.2</span></h1>
     <div class="sub">导入小说 · 扫描角色 · 按模板抽取角色卡</div>
     <div class="rule"></div>
   </header>
@@ -211,6 +211,10 @@
     <div class="log" id="scanLog"></div>
     <div id="charSearchWrap" style="margin-top:14px;display:none">
       <input type="text" id="charSearch" placeholder="搜索角色名（角色多的时候用它快速找）…" autocomplete="off" style="width:100%">
+      <div style="display:flex;align-items:center;gap:14px;margin-top:8px">
+        <label class="toggle"><input type="checkbox" id="charOnlySel"> 只看已选</label>
+        <span id="charCount" class="faint" style="font-size:12px"></span>
+      </div>
     </div>
     <div class="charlist" id="charList" style="margin-top:12px"></div>
   </div>
@@ -1002,12 +1006,15 @@ $("scanBtn").onclick=async()=>{
 
 function renderChars(){
   const box=$("charList"); box.innerHTML="";
-  // 角色较多时才显示搜索框
   const wrap=$("charSearchWrap");
   if(wrap) wrap.style.display = characters.length>12 ? "block" : "none";
+  if($("charCount")) $("charCount").textContent = characters.length ? ("共 "+characters.length+" 个 · 已选 "+selectedNames.length) : "";
   const kw=($("charSearch")&&$("charSearch").value.trim().toLowerCase())||"";
-  const list = kw ? characters.filter(c=> c.name.toLowerCase().includes(kw) || (c.aliases||[]).some(a=>a.toLowerCase().includes(kw)) || (c.role||"").toLowerCase().includes(kw)) : characters;
-  if(kw && !list.length){ box.innerHTML='<div class="faint" style="font-size:12.5px">没有匹配「'+kw+'」的角色</div>'; return; }
+  const onlySel=$("charOnlySel")&&$("charOnlySel").checked;
+  let list = characters;
+  if(onlySel) list=list.filter(c=>selectedNames.includes(c.name));
+  if(kw) list=list.filter(c=> c.name.toLowerCase().includes(kw) || (c.aliases||[]).some(a=>a.toLowerCase().includes(kw)) || (c.role||"").toLowerCase().includes(kw));
+  if(!list.length && characters.length){ box.innerHTML='<div class="faint" style="font-size:12.5px">'+(onlySel&&!kw?"还没有选中任何角色":"没有匹配的角色")+'</div>'; return; }
   list.forEach(c=>{
     const on=selectedNames.includes(c.name);
     const d=document.createElement("div");
@@ -1017,7 +1024,7 @@ function renderChars(){
     d.querySelector(".n").textContent=c.name;
     d.querySelector(".r").textContent=c.role||"";
     const alias=(c.aliases&&c.aliases.length)? " · 别名: "+c.aliases.join("、") : "";
-    const src = c.count>0 ? ("出现于 "+c.count+" 段") : "手动添加";
+    const src = c.count>0 ? ("出现于 "+c.count+" 段") : (c.fromUnmerge ? "拆分自合并（仍可正常生成）" : "手动添加");
     d.querySelector(".c").textContent=src+alias+(on?" · 已选":"");
     // 操作按钮：拆分（撤销合并）+ 删除
     const ops=document.createElement("div");
@@ -1048,9 +1055,13 @@ function unmergeChar(name){
   const c=characters.find(x=>x.name===name);
   if(!c||!c.aliases||!c.aliases.length) return;
   const names=[c.name, ...c.aliases];
+  const meta=c.aliasMeta||{};
   characters=characters.filter(x=>x.name!==name);
   for(const nm of names){
-    if(!characters.some(x=>x.name===nm)) characters.push({name:nm, role:(nm===c.name? c.role:""), count:(nm===c.name?c.count:0), aliases:[]});
+    if(!characters.some(x=>x.name===nm)){
+      const cnt = nm===c.name ? c.count : (meta[nm]!=null ? meta[nm] : 0);
+      characters.push({name:nm, role:(nm===c.name? c.role:""), count:cnt, aliases:[], fromUnmerge:(nm!==c.name)});
+    }
   }
   renderChars(); updateGenBtn(); flash($("scanMsg"),"已拆分「"+name+"」");
 }
@@ -1075,6 +1086,7 @@ $("addNamesBtn").onclick=addManualNames;
 $("manualNames").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addManualNames(); } });
 $("clearCharsBtn").onclick=()=>{ if(runningBtn){ flash($("scanMsg"),"有任务进行中，请先停止",true); return; } characters=[]; selectedNames=[]; scanState=null; if($("charSearch")) $("charSearch").value=""; renderChars(); updateGenBtn(); flash($("scanMsg"),"已清空"); };
 if($("charSearch")) $("charSearch").addEventListener("input", ()=>renderChars());
+if($("charOnlySel")) $("charOnlySel").addEventListener("change", ()=>renderChars());
 
 // 手动合并：把选中的多个角色并成一个（第一个为主名，其余记为别名）
 $("mergeBtn").onclick=()=>{
@@ -1084,10 +1096,12 @@ $("mergeBtn").onclick=()=>{
   const primary=characters.find(c=>c.name===primaryName);
   if(!primary){ flash($("scanMsg"),"未找到主角色",true); return; }
   if(!Array.isArray(primary.aliases)) primary.aliases=[];
+  if(!primary.aliasMeta) primary.aliasMeta={};   // 记住每个别名原本的 count，供拆分时恢复
   for(const nm of selectedNames.slice(1)){
     const o=characters.find(c=>c.name===nm); if(!o) continue;
     if(!primary.aliases.includes(nm)) primary.aliases.push(nm);
-    for(const a of (o.aliases||[])) if(!primary.aliases.includes(a)&&a!==primaryName) primary.aliases.push(a);
+    primary.aliasMeta[nm]=o.count||0;
+    for(const a of (o.aliases||[])){ if(!primary.aliases.includes(a)&&a!==primaryName){ primary.aliases.push(a); if(o.aliasMeta&&o.aliasMeta[a]!=null) primary.aliasMeta[a]=o.aliasMeta[a]; } }
     primary.count += o.count||0;
     characters=characters.filter(c=>c.name!==nm);
   }
