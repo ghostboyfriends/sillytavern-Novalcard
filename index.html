@@ -100,7 +100,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.8.3</span></h1>
+    <h1>角色卡提取工具 <span style="font-size:13px;font-weight:500;color:var(--gold);vertical-align:2px">v5.8.4</span></h1>
     <div class="sub">导入小说 · 扫描角色 · 按模板抽取角色卡</div>
     <div class="rule"></div>
   </header>
@@ -2302,7 +2302,12 @@ function renderHistory(){
     d.querySelector(".c").textContent=(rec.time||"")+(rec.model?(" · "+rec.model):"");
     const row=d.querySelector(".btnrow");
     const mk=(label,fn)=>{ const b=document.createElement("button"); b.type="button"; b.className="mini"; b.textContent=label; b.onclick=fn; return b; };
-    row.appendChild(mk("查看",()=>{ const t=$(m.box); if(t){ t.value=rec.text; t.scrollIntoView({behavior:"smooth",block:"center"}); } }));
+    row.appendChild(mk("查看",()=>{
+      const t=$(m.box);
+      if(t){ t.value=rec.text; t.scrollIntoView({behavior:"smooth",block:"center"}); }
+      // 世界书查看后要解析回 wbEntries，否则自检的「扫描当前内容」扫不到
+      if(rec.type==="worldbook"){ const parsed=parseWbPreview(rec.text); if(parsed.length){ wbEntries=parsed; } }
+    }));
     row.appendChild(mk("下载",()=>downloadBlob(rec.text,(rec.title||m.label).replace(/[\\/:*?"<>|、]/g,"_")+m.ext,m.mime)));
     row.appendChild(mk("删除",()=>{ history=history.filter(x=>x.id!==rec.id); saveJSON("cc_history",history); renderHistory(); }));
     box.appendChild(d);
@@ -2327,7 +2332,13 @@ $("checkScanBtn").onclick=()=>{
         checkItems.push({ type:"card", label:"角色卡·"+idxs[i].name, name:idxs[i].name, content:out.slice(s,e).trim() }); }
     }
   }
-  (wbEntries||[]).forEach(e=>{ checkItems.push({ type:"wb", label:"世界书·"+e.title, name:e.title, content:e.content, keys:e.keys }); });
+  // 世界书：优先用内部条目；若为空但预览框有内容（如刚从历史查看/手动粘贴），就地解析
+  let wbForCheck = wbEntries;
+  if((!wbForCheck || !wbForCheck.length) && $("wbOut").value.trim()){
+    const parsed=parseWbPreview($("wbOut").value);
+    if(parsed.length){ wbForCheck=parsed; wbEntries=parsed; }
+  }
+  (wbForCheck||[]).forEach(e=>{ checkItems.push({ type:"wb", label:"世界书·"+e.title, name:e.title, content:e.content, keys:e.keys }); });
 
   const box=$("checkList"); box.innerHTML="";
   if(!checkItems.length){ box.innerHTML='<div class="faint" style="font-size:12.5px">没有可检查的内容——先生成角色卡或世界书</div>'; $("checkRunBtn").disabled=true; return; }
